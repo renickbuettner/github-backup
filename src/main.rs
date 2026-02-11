@@ -11,7 +11,7 @@ use std::path::Path;
 struct Args {
     /// GitHub personal access token
     #[arg(short, long, env = "GITHUB_TOKEN")]
-    token: String,
+    token: Option<String>,
 
     /// GitHub username or organization name
     #[arg(short, long)]
@@ -30,7 +30,6 @@ struct Args {
 struct Repository {
     name: String,
     full_name: String,
-    html_url: String,
     updated_at: String,
     #[serde(rename = "default_branch")]
     default_branch: String,
@@ -141,15 +140,21 @@ fn download_repository_zip(
     }
 
     let bytes = response.bytes().context("Failed to read response body")?;
+    let byte_count = bytes.len();
     fs::write(&output_path, bytes).context(format!("Failed to write file: {}", filename))?;
 
-    println!("[Backup] ✓ Downloaded {} ({} bytes)", filename, bytes.len());
+    println!("[Backup] ✓ Downloaded {} ({} bytes)", filename, byte_count);
 
     Ok(())
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
+
+    // Get token from args or environment variable
+    let token = args.token.ok_or_else(|| {
+        anyhow::anyhow!("GitHub token is required. Set GITHUB_TOKEN environment variable or use --token flag")
+    })?;
 
     println!("[Backup] Starting GitHub backup");
     println!("[Backup] Owner: {}", args.owner);
@@ -161,7 +166,7 @@ fn main() -> Result<()> {
         .context(format!("Failed to create output directory: {}", args.output))?;
 
     // Create HTTP client
-    let client = create_http_client(&args.token)?;
+    let client = create_http_client(&token)?;
 
     // Fetch all repositories
     println!("[Backup] Fetching repositories...");
