@@ -57,7 +57,9 @@ fn log_message(message: &str, is_error: bool) {
         .append(true)
         .open(LOG_FILENAME)
     {
-        let _ = writeln!(file, "{}", message);
+        if let Err(e) = writeln!(file, "{}", message) {
+            eprintln!("Warning: Failed to write to log file: {}", e);
+        }
     }
 }
 
@@ -207,7 +209,7 @@ fn main() -> Result<()> {
     progress_bar.set_style(
         ProgressStyle::default_bar()
             .template("[{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-            .unwrap()
+            .expect("Failed to create progress bar template")
             .progress_chars("=>-"),
     );
 
