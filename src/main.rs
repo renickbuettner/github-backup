@@ -47,10 +47,9 @@ struct Repository {
 /// Utility function to log messages to both console and log file
 fn log_message(message: &str, is_error: bool) {
     // Display to console (errors in red)
-    if is_error {
-        eprintln!("{}", message.red());
-    } else {
-        println!("{}", message);
+    match is_error {
+        true => eprintln!("{}", message.red()),
+        false => println!("{}", message),
     }
 
     // Write to log file
