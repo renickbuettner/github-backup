@@ -94,12 +94,12 @@ fn fetch_repositories(client: &reqwest::blocking::Client, owner: &str, owner_typ
     loop {
         let url = match owner_type {
             "org" => format!(
-                "https://api.github.com/orgs/{}/repos?per_page={}&page={}&sort=updated&direction=desc",
+                "https://api.github.com/orgs/{}/repos?per_page={}&page={}&sort=updated&direction=desc&type=all",
                 owner, PER_PAGE, page
             ),
             _ => format!(
-                "https://api.github.com/users/{}/repos?per_page={}&page={}&sort=updated&direction=desc",
-                owner, PER_PAGE, page
+                "https://api.github.com/user/repos?per_page={}&page={}&sort=updated&direction=desc&affiliation=owner&visibility=all",
+                PER_PAGE, page
             ),
         };
 
