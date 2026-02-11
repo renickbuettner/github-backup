@@ -9,7 +9,7 @@ description = "Build the GitHub backup tool"
 run = "cargo build --release"
 
 [tasks.run]
-description = "Run the GitHub backup tool"
+description = "Run the GitHub backup tool with the default configuration"
 run = "cargo run --release -- --token $GITHUB_TOKEN --owner $OWNER"
 
 [tasks.install-deps]
