@@ -12,6 +12,17 @@ run = "cargo build --release"
 description = "Run the GitHub backup tool with the default configuration"
 run = "cargo run --release -- --token $GITHUB_TOKEN --owner $OWNER"
 
+[tasks.backup]
+description = "Backup all repositories from a GitHub user or organization"
+usage = "backup <owner> [--org]"
+run = """
+if [ "$2" = "--org" ]; then
+  cargo run --release -- --token $GITHUB_TOKEN --owner $1 --owner-type org
+else
+  cargo run --release -- --token $GITHUB_TOKEN --owner $1
+fi
+"""
+
 [tasks.install-deps]
 description = "Install Rust dependencies"
 run = "cargo fetch"

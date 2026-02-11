@@ -21,15 +21,19 @@ mise run build
 
 ## Usage
 
-Set your GitHub token as an environment variable:
+Create a `.env` file with your GitHub token:
 ```bash
-export GITHUB_TOKEN="your_github_token_here"
+GITHUB_TOKEN="your_github_token_here"
 ```
 
 Run the backup:
 ```bash
-cargo run --release -- --owner yourusername
-cargo run --release -- --owner yourorg --owner-type org
+# will backup repositories of the user specified in the GITHUB_TOKEN
+muse run run 
+
+# backup repositories of a specific user or organization
+mise run backup yourusername
+mise run backup yourorg --org
 ```
 
 ### Options
