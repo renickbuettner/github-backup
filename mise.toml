@@ -1,5 +1,5 @@
 [tools]
-rust = "latest"
+rust = "1.93.0"
 
 [tasks.build]
 description = "Build the GitHub backup tool"
