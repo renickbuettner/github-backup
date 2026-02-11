@@ -41,7 +41,6 @@ struct Repository {
     name: String,
     full_name: String,
     updated_at: String,
-    #[serde(rename = "default_branch")]
     default_branch: String,
 }
 
