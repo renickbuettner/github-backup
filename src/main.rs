@@ -1,9 +1,16 @@
 use anyhow::{Context, Result};
 use clap::Parser;
+use colored::Colorize;
+use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT};
 use serde::Deserialize;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::Path;
+
+// Constants
+const PER_PAGE: u32 = 100;
+const LOG_FILENAME: &str = "transition.log";
 
 /// GitHub Backup Tool - Downloads all repositories from a user or organization
 #[derive(Parser, Debug)]
@@ -35,6 +42,25 @@ struct Repository {
     default_branch: String,
 }
 
+/// Utility function to log messages to both console and log file
+fn log_message(message: &str, is_error: bool) {
+    // Display to console (errors in red)
+    if is_error {
+        eprintln!("{}", message.red());
+    } else {
+        println!("{}", message);
+    }
+
+    // Write to log file
+    if let Ok(mut file) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(LOG_FILENAME)
+    {
+        let _ = writeln!(file, "{}", message);
+    }
+}
+
 fn create_http_client(token: &str) -> Result<reqwest::blocking::Client> {
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -59,21 +85,20 @@ fn create_http_client(token: &str) -> Result<reqwest::blocking::Client> {
 fn fetch_repositories(client: &reqwest::blocking::Client, owner: &str, owner_type: &str) -> Result<Vec<Repository>> {
     let mut all_repos = Vec::new();
     let mut page = 1;
-    let per_page = 100;
 
     loop {
         let url = match owner_type {
             "org" => format!(
                 "https://api.github.com/orgs/{}/repos?per_page={}&page={}&sort=updated&direction=desc",
-                owner, per_page, page
+                owner, PER_PAGE, page
             ),
             _ => format!(
                 "https://api.github.com/users/{}/repos?per_page={}&page={}&sort=updated&direction=desc",
-                owner, per_page, page
+                owner, PER_PAGE, page
             ),
         };
 
-        println!("[Backup] Fetching page {} of repositories...", page);
+        log_message(&format!("[Backup] Fetching page {} of repositories...", page), false);
 
         let response = client
             .get(&url)
@@ -115,7 +140,7 @@ fn download_repository_zip(
 
     // Skip if file already exists
     if output_path.exists() {
-        println!("[Backup] Skipping {} (already exists)", filename);
+        log_message(&format!("[Backup] Skipping {} (already exists)", filename), false);
         return Ok(());
     }
 
@@ -123,8 +148,6 @@ fn download_repository_zip(
         "https://api.github.com/repos/{}/{}/zipball/{}",
         owner, repo_name, default_branch
     );
-
-    println!("[Backup] Downloading {} to {}...", repo_name, filename);
 
     let response = client
         .get(&url)
@@ -143,7 +166,7 @@ fn download_repository_zip(
     let byte_count = bytes.len();
     fs::write(&output_path, bytes).context(format!("Failed to write file: {}", filename))?;
 
-    println!("[Backup] ✓ Downloaded {} ({} bytes)", filename, byte_count);
+    log_message(&format!("[Backup] ✓ Downloaded {} ({} bytes)", filename, byte_count), false);
 
     Ok(())
 }
@@ -156,10 +179,10 @@ fn main() -> Result<()> {
         anyhow::anyhow!("GitHub token is required. Set GITHUB_TOKEN environment variable or use --token flag")
     })?;
 
-    println!("[Backup] Starting GitHub backup");
-    println!("[Backup] Owner: {}", args.owner);
-    println!("[Backup] Owner Type: {}", args.owner_type);
-    println!("[Backup] Output Directory: {}", args.output);
+    log_message("[Backup] Starting GitHub backup", false);
+    log_message(&format!("[Backup] Owner: {}", args.owner), false);
+    log_message(&format!("[Backup] Owner Type: {}", args.owner_type), false);
+    log_message(&format!("[Backup] Output Directory: {}", args.output), false);
 
     // Create output directory if it doesn't exist
     fs::create_dir_all(&args.output)
@@ -169,24 +192,28 @@ fn main() -> Result<()> {
     let client = create_http_client(&token)?;
 
     // Fetch all repositories
-    println!("[Backup] Fetching repositories...");
+    log_message("[Backup] Fetching repositories...", false);
     let repositories = fetch_repositories(&client, &args.owner, &args.owner_type)?;
 
-    println!(
-        "[Backup] Found {} repositories to backup",
-        repositories.len()
+    log_message(
+        &format!("[Backup] Found {} repositories to backup", repositories.len()),
+        false,
     );
 
     let output_path = Path::new(&args.output);
 
+    // Create progress bar
+    let progress_bar = ProgressBar::new(repositories.len() as u64);
+    progress_bar.set_style(
+        ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+            .unwrap()
+            .progress_chars("=>-"),
+    );
+
     // Download each repository
-    for (index, repo) in repositories.iter().enumerate() {
-        println!(
-            "[Backup] [{} / {}] Processing {}",
-            index + 1,
-            repositories.len(),
-            repo.full_name
-        );
+    for repo in repositories.iter() {
+        progress_bar.set_message(format!("Processing {}", repo.full_name));
 
         if let Err(e) = download_repository_zip(
             &client,
@@ -196,12 +223,17 @@ fn main() -> Result<()> {
             output_path,
             &repo.updated_at,
         ) {
-            eprintln!("[Error] Failed to backup {}: {}", repo.full_name, e);
+            let error_msg = format!("[Error] Failed to backup {}: {}", repo.full_name, e);
+            log_message(&error_msg, true);
             // Continue with next repository instead of failing completely
         }
+
+        progress_bar.inc(1);
     }
 
-    println!("[Backup] ✓ Backup complete!");
+    progress_bar.finish_with_message("Complete");
+
+    log_message("[Backup] ✓ Backup complete!", false);
 
     Ok(())
 }

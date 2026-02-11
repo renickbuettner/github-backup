@@ -233,3 +233,6 @@ data/*
 # Rust build artifacts
 target/
 Cargo.lock
+
+# Log files
+transition.log
