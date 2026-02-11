@@ -29,11 +29,11 @@ GITHUB_TOKEN="your_github_token_here"
 Run the backup:
 ```bash
 # will backup repositories of the user specified in the GITHUB_TOKEN
-muse run run 
+mise run run 
 
 # backup repositories of a specific user or organization
 mise run backup yourusername
-mise run backup yourorg --org
+mise run backup-org yourorg
 ```
 
 ### Options
