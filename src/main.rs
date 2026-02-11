@@ -12,6 +12,8 @@ use std::time::Instant;
 // Constants
 const PER_PAGE: u32 = 100;
 const LOG_FILENAME: &str = "transition.log";
+const DOWNLOAD_BUFFER_SIZE: usize = 8192;
+const BYTES_PER_MB: f64 = 1_048_576.0;
 
 /// GitHub Backup Tool - Downloads all repositories from a user or organization
 #[derive(Parser, Debug)]
@@ -184,7 +186,7 @@ fn download_repository_zip(
     let mut file = fs::File::create(&output_path)
         .context(format!("Failed to create file: {}", filename))?;
 
-    let mut buffer = [0u8; 8192];
+    let mut buffer = [0u8; DOWNLOAD_BUFFER_SIZE];
     loop {
         let bytes_read = response.read(&mut buffer)
             .context("Failed to read response body")?;
@@ -204,7 +206,7 @@ fn download_repository_zip(
 
     let elapsed = start_time.elapsed().as_secs_f64();
     let speed_mbps = if elapsed > 0.0 {
-        (downloaded as f64 / 1_048_576.0) / elapsed
+        (downloaded as f64 / BYTES_PER_MB) / elapsed
     } else {
         0.0
     };
