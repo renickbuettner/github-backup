@@ -5,8 +5,9 @@ use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT};
 use serde::Deserialize;
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{Write, Read};
 use std::path::Path;
+use std::time::Instant;
 
 // Constants
 const PER_PAGE: u32 = 100;
@@ -151,7 +152,7 @@ fn download_repository_zip(
         owner, repo_name, default_branch
     );
 
-    let response = client
+    let mut response = client
         .get(&url)
         .send()
         .context(format!("Failed to download repository: {}", repo_name))?;
@@ -164,11 +165,57 @@ fn download_repository_zip(
         ));
     }
 
-    let bytes = response.bytes().context("Failed to read response body")?;
-    let byte_count = bytes.len();
-    fs::write(&output_path, bytes).context(format!("Failed to write file: {}", filename))?;
+    // Get content length if available
+    let total_size = response.content_length().unwrap_or(0);
+    
+    // Create progress bar for this download
+    let pb = ProgressBar::new(total_size);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("  [{bar:30.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) {msg}")
+            .expect("Failed to create download progress bar template")
+            .progress_chars("=>-"),
+    );
+    pb.set_message(filename.clone());
 
-    log_message(&format!("[Backup] ✓ Downloaded {} ({} bytes)", filename, byte_count), false);
+    // Download with progress tracking
+    let start_time = Instant::now();
+    let mut downloaded: u64 = 0;
+    let mut file = fs::File::create(&output_path)
+        .context(format!("Failed to create file: {}", filename))?;
+
+    let mut buffer = [0u8; 8192];
+    loop {
+        let bytes_read = response.read(&mut buffer)
+            .context("Failed to read response body")?;
+        
+        if bytes_read == 0 {
+            break;
+        }
+        
+        file.write_all(&buffer[..bytes_read])
+            .context("Failed to write to file")?;
+        
+        downloaded += bytes_read as u64;
+        pb.set_position(downloaded);
+    }
+
+    pb.finish_and_clear();
+
+    let elapsed = start_time.elapsed().as_secs_f64();
+    let speed_mbps = if elapsed > 0.0 {
+        (downloaded as f64 / 1_048_576.0) / elapsed
+    } else {
+        0.0
+    };
+
+    log_message(
+        &format!(
+            "[Backup] ✓ Downloaded {} ({} bytes, {:.2} MB/s)",
+            filename, downloaded, speed_mbps
+        ),
+        false,
+    );
 
     Ok(())
 }
