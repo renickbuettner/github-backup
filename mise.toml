@@ -1,0 +1,18 @@
+[tools]
+rust = "latest"
+
+[tasks.build]
+description = "Build the GitHub backup tool"
+run = "cargo build --release"
+
+[tasks.run]
+description = "Run the GitHub backup tool"
+run = "cargo run --release -- --token $GITHUB_TOKEN --owner $OWNER"
+
+[tasks.install-deps]
+description = "Install Rust dependencies"
+run = "cargo fetch"
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = "cargo clean"

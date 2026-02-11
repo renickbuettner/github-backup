@@ -225,3 +225,11 @@ temp/
 # End of https://www.gitignore.io/api/node,macos,intellij+all
 
 dist
+
+# Backup data directory
+data/*
+!data/.gitkeep
+
+# Rust build artifacts
+target/
+Cargo.lock
