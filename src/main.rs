@@ -108,9 +108,9 @@ fn download_repository_zip(
     output_dir: &Path,
     updated_at: &str,
 ) -> Result<()> {
-    let date = updated_at.split('T').next().unwrap_or("unknown");
+    let date = updated_at.split('T').next().unwrap();
     let safe_repo_name = repo_name.replace('/', "_");
-    let filename = format!("{}_{}.zip", safe_repo_name, date);
+    let filename = format!("{}_{}_{}.zip", owner, safe_repo_name, date);
     let output_path = output_dir.join(&filename);
 
     // Skip if file already exists
